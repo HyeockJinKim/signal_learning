@@ -68,7 +68,7 @@ def split_wav_ms(file_path, chunks_lengths_ms):
 
 def split_wav_peaks(file_path):
     files = [f for f in os.listdir(file_path) if f.endswith('.wav')]
-    save_folder = 'peak_modulation'
+    save_folder = 'peak_data_sets'
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
     for f in files:
@@ -113,11 +113,37 @@ def classify_modulation(file_path, chunks_lengths_ms):
                 chunk.export(os.path.join(save_folder, modulation, file_name+'chunk{0}.wav'.format(str(i))), format='wav')
 
 
+def classify_peak_modulation(file_path):
+    files = [f for f in os.listdir(file_path) if f.endswith('.wav')]
+    save_folder = 'peak_modulation'
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
+    for modulation in modulation_dict.keys():
+        if not os.path.exists(os.path.join(save_folder, modulation)):
+            os.makedirs(os.path.join(save_folder, modulation))
+        for f in modulation_dict[modulation]:
+            file_name = str(f).split('.')[0]
+            wav_file = pydub.AudioSegment.from_wav(os.path.join(file_path, f+'.wav'))
+            sr, data = wavfile.read(os.path.join(file_path, f+'.wav'))
+            mean = np.mean(data, axis=0)
+            index = 0
+            for i in range(500, len(wav_file) - 1500, 1000):
+                arg_max = np.argmax(data[i:i + 1000], axis=0)
+                max_value = np.max(data[arg_max])
+                if max_value > np.max(mean):
+                    j = i + np.max(arg_max)
+                    print(j)
+                    wav_file[j - 500:j + 500].export(os.path.join(save_folder, modulation,
+                                                                  file_name+'chunk{0}.wav'.format(index)), format='wav')
+                    index += 1
+
+
 # convert_mp3_wav('audio')
 # convert_ogg_wav('audio')
 # move_wave('audio')
 # classify_modulation('wav_file', 1000)
 # split_wav_ms(folder_path, 1000)
 split_wav_peaks('wav_file')
-
+classify_peak_modulation('wav_file')
 
