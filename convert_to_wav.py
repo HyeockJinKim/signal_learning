@@ -2,7 +2,6 @@ import tempfile
 import os
 import pydub
 from pydub.utils import make_chunks
-from peakutils.peak import indexes
 from scipy.io import wavfile
 import scipy.signal as signal
 import numpy as np
@@ -30,9 +29,10 @@ modulation_dict = {
 }
 
 
-folder_path = 'wav_file'
+folder_path = 'Modulation'
 
 
+# Convert MP3 to WAV File
 def convert_mp3_wav(file_path):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -42,6 +42,7 @@ def convert_mp3_wav(file_path):
         mp3.export(os.path.join(folder_path, str(f).split('.')[0]+'.wav'), format='wav')
 
 
+# Convert OGG to WAV File
 def convert_ogg_wav(file_path):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -51,6 +52,7 @@ def convert_ogg_wav(file_path):
         ogg.export(os.path.join(folder_path, str(f).split('.')[0]+'.wav'), format='wav')
 
 
+# Simply split with chunk length ms
 def split_wav_ms(file_path, chunks_lengths_ms):
     files = [f for f in os.listdir(file_path) if f.endswith('.wav')]
     save_folder = 'data_sets'
@@ -66,8 +68,10 @@ def split_wav_ms(file_path, chunks_lengths_ms):
             chunk.export(os.path.join(save_folder, file_name, 'chunk{0}.wav'.format(str(i))), format='wav')
 
 
-def split_wav_peaks(file_path):
+# split wav with peak point, to ignore no data point in wav file
+def split_wav_peaks(file_path, chunks_length_ms):
     files = [f for f in os.listdir(file_path) if f.endswith('.wav')]
+    chunk_half_length = int(chunks_length_ms/2)+1
     save_folder = 'peak_data_sets'
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -79,13 +83,13 @@ def split_wav_peaks(file_path):
         sr, data = wavfile.read(os.path.join(file_path, f))
         mean = np.mean(data, axis=0)
         index = 0
-        for i in range(500, len(wav_file)-1500, 1000):
-            arg_max = np.argmax(data[i:i+1000], axis=0)
+        for i in range(chunk_half_length, len(wav_file)-chunks_length_ms, chunks_length_ms):
+            arg_max = np.argmax(data[i:i+chunks_length_ms], axis=0)
             max_value = np.max(data[arg_max])
             if max_value > np.max(mean):
                 j = i + np.max(arg_max)
                 print(j)
-                wav_file[j-500:j+500].export(os.path.join(save_folder, file_name,
+                wav_file[j-chunk_half_length:j+chunk_half_length].export(os.path.join(save_folder, file_name,
                                                                       'chunk{0}.wav'.format(index)), format='wav')
                 index += 1
 
@@ -141,9 +145,10 @@ def classify_peak_modulation(file_path):
 
 # convert_mp3_wav('audio')
 # convert_ogg_wav('audio')
+
 # move_wave('audio')
 # classify_modulation('wav_file', 1000)
 # split_wav_ms(folder_path, 1000)
-split_wav_peaks('wav_file')
-classify_peak_modulation('wav_file')
+split_wav_peaks('Modulation', 10000)
+# classify_peak_modulation('wav_file')
 
