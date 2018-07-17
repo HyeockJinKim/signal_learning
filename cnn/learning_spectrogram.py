@@ -1,25 +1,18 @@
-import operator
 import os
 from os.path import isdir, join
-from pathlib import Path
-
 # Math
+import random
+
 import numpy as np
-from scipy.fftpack import fft
 from scipy import signal
 from scipy.io import wavfile
-import librosa
-import pandas as pd
-import seaborn as sn
-
-from sklearn.decomposition import PCA
+from cnn import Spectrogram_CNN
 
 # Visualization
 import matplotlib.pyplot as plt
-import librosa.display
 import tensorflow as tf
-
-import Spectrogram_CNN
+import pandas as pd
+import seaborn as sn
 
 
 class SpectrogramLearning:
@@ -42,7 +35,7 @@ class SpectrogramLearning:
         self.test_target = None
         self.test_spec = None
         # call the init variable function
-        self.make_confusion_matrix()
+        self.reset_confusion_matrix()
         self.find_max_sr()
 
     @staticmethod
@@ -59,7 +52,7 @@ class SpectrogramLearning:
         return freqs, times, np.log(spec.T.astype(np.float32) + eps)
 
     # Confusion Matrix
-    def make_confusion_matrix(self):
+    def reset_confusion_matrix(self):
         self.confusion_matrix = np.zeros(shape=(len(self.dirs), len(self.dirs)))
 
     def find_max_sr(self):
@@ -100,16 +93,16 @@ class SpectrogramLearning:
 
     def get_accuracy(self, logits, targets):
         batch_predictions = np.argmax(logits, axis=1)
-        self.add_confusion_matrix(batch_predictions, targets)
+        self.make_confusion_matrix(batch_predictions, targets)
         num_correct = np.sum(np.equal(batch_predictions, targets))
         return (100. * num_correct) / batch_predictions.shape[0]
 
-    def add_confusion_matrix(self, pred, target):
+    def make_confusion_matrix(self, pred, target):
         for i in range(len(pred)):
             self.confusion_matrix[pred[i]][target[i]] += 1
 
     def learning_cnn(self, lr, generations, drop_out_rate, batch_size):
-        x_input, y_target, eval_input, eval_target = self.define_value()
+        x_input, y_target, eval_input, eval_target = self.define_value(batch_size)
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
@@ -145,6 +138,7 @@ class SpectrogramLearning:
                 sess.run(train_step, feed_dict={x_input: rand_x, y_target: rand_y})
                 temp_train_loss, temp_train_preds = sess.run([loss, prediction],
                                                              feed_dict={x_input: rand_x, y_target: rand_y})
+                temp_train_acc = self.get_accuracy(temp_train_preds, rand_y)
                 # logging temp result
                 if (i + 1) % 50 == 0:
                     eval_index = np.random.choice(len(self.test_spec), size=batch_size)
@@ -153,8 +147,6 @@ class SpectrogramLearning:
                     eval_y = self.test_target[eval_index]
 
                     test_preds = sess.run(test_prediction, feed_dict={eval_input: eval_x})
-
-                    temp_train_acc = self.get_accuracy(temp_train_preds, rand_y)
                     temp_test_acc = self.get_accuracy(test_preds, eval_y)
 
                     # Logging and Printing Results
@@ -165,8 +157,61 @@ class SpectrogramLearning:
                     acc_and_loss = [np.round(x, 10) for x in acc_and_loss]
                     print('Generation # {}. Train Loss: {:.10f}. '
                           'Train Acc (Test Acc): {:.2f} ({:.2f})'.format(*acc_and_loss))
+            self.reset_confusion_matrix()
 
-    def define_value(self):
+            for loop in range(5):
+                no_list = []
+                num_list = []
+                for loops in range(3):
+                    target_list = [index for index in self.target_dict.keys()]
+                    while target_list:
+                        rand_index = int(random.randrange(1, len(self.train_target)))
+                        for i, index in enumerate(self.train_target):
+                            for p in range(rand_index):
+                                continue
+                            num = int(index)
+                            if num in target_list and i not in no_list:
+                                target_list.remove(num)
+                                no_list.append(i)
+                                num_list.append(i)
+
+                num_list.append(int(random.randrange(1, len(self.train_target))))
+                num_list.append(int(random.randrange(1, len(self.train_target))))
+                rand_x = self.train_spec[np.array(num_list)]
+                rand_x = np.expand_dims(rand_x, -1)
+                rand_y = self.train_target[np.array(num_list)]
+
+                sess.run(train_step, feed_dict={x_input: rand_x, y_target: rand_y})
+                temp_train_loss, temp_train_preds = sess.run([loss, prediction],
+                                                             feed_dict={x_input: rand_x, y_target: rand_y})
+                temp_train_acc = self.get_accuracy(temp_train_preds, rand_y)
+
+                no_list = []
+                num_list = []
+                for loop in range(3):
+                    target_list = [index for index in self.target_dict.keys()]
+                    while target_list:
+                        rand_index = int(random.randrange(1, len(self.test_target)))
+                        for i, index in enumerate(self.test_target):
+                            for p in range(rand_index):
+                                continue
+                            num = int(index)
+                            if num in target_list and i not in no_list:
+                                target_list.remove(num)
+                                no_list.append(i)
+                                num_list.append(i)
+
+                num_list.append(int(random.randrange(1, len(self.test_target))))
+                num_list.append(int(random.randrange(1, len(self.test_target))))
+
+                eval_x = self.test_spec[np.array(num_list)]
+                eval_x = np.expand_dims(eval_x, -1)
+                eval_y = self.test_target[np.array(num_list)]
+
+                test_preds = sess.run(test_prediction, feed_dict={eval_input: eval_x})
+                temp_test_acc = self.get_accuracy(test_preds, eval_y)
+
+    def define_value(self, batch_size):
         train_indices = np.random.choice(len(self.target_all), round(len(self.target_all) * 0.7), replace=False)
 
         # Get indices for test 30%
