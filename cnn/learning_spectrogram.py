@@ -40,16 +40,27 @@ class SpectrogramLearning:
 
     @staticmethod
     def log_spectrogram(audio, sample_rate, window_size=20, step_size=10,
-                        eps=1e-10):
+                        eps=1e-10, is_phase=False):
         nperseg = int(round(window_size * sample_rate / 1e3))
         noverlap = int(round(step_size * sample_rate / 1e3))
-        freqs, times, spec = signal.spectrogram(audio,
-                                                fs=sample_rate,
-                                                window='hann',
-                                                nperseg=nperseg,
-                                                noverlap=noverlap,
-                                                detrend=False)
+        if is_phase:
+            freqs, times, spec = signal.spectrogram(audio,
+                                                    fs=sample_rate,
+                                                    window='hann',
+                                                    nperseg=nperseg,
+                                                    noverlap=noverlap,
+                                                    mode='phase',
+                                                    detrend=False)
+        else:
+            freqs, times, spec = signal.spectrogram(audio,
+                                                    fs=sample_rate,
+                                                    window='hann',
+                                                    nperseg=nperseg,
+                                                    noverlap=noverlap,
+                                                    detrend=False)
         return freqs, times, np.log(spec.T.astype(np.float32) + eps)
+
+
 
     # Confusion Matrix
     def reset_confusion_matrix(self):
@@ -79,12 +90,17 @@ class SpectrogramLearning:
                     self.target_all.append(direct)
 
                     freqs, times, spec = self.log_spectrogram(resamples, self.max_sr)
-                    spec = (spec - spec.min())/(spec.max() - spec.min())
+                    freqs, times, phase_spec = self.log_spectrogram(resamples, self.max_sr, is_phase=True)
 
-                    al.append([np.reshape(spec, (len(freqs), len(times))), direct])
+                    spec = (spec - spec.min()) / (spec.max() - spec.min())
+                    phase_spec = (phase_spec - phase_spec.min()) / (phase_spec.max() - phase_spec.min())
+                    spec = np.concatenate((np.reshape(spec, (len(freqs), len(times))), np.reshape(phase_spec, (len(freqs), len(times)))), axis=0)
+
+                    al.append([spec, direct])
                 except:
                     pass
-        self.freq_size = len(freqs)
+        print(spec.shape)
+        self.freq_size = len(freqs)*2
         self.time_size = len(times)
         np.random.shuffle(al)
         # Split Data to Spectrogram and Target(Label)
