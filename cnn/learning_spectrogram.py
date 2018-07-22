@@ -52,7 +52,8 @@ class SpectrogramLearning:
         noverlap = int(round(step_size * sample_rate / 1e3))
         if is_phase:
             fft = np.fft.fft(audio)
-            freqs, times, spec = signal.spectrogram(np.real(fft),
+
+            freqs, times, spec = signal.spectrogram(np.imag(fft),
                                                     fs=sample_rate,
                                                     window='hann',
                                                     nperseg=nperseg,
@@ -153,7 +154,7 @@ class SpectrogramLearning:
                                                          drop_out_rate=drop_out_rate,
                                                          is_training=True, target_value=self.target_value)
                 model_output2 = Spectrogram_CNN.cnn_model(z_input, batch_size,
-                                                         drop_out_rate=0.1,
+                                                         drop_out_rate=drop_out_rate,
                                                          is_training=True, target_value=self.target_value)
                 test_model_output = Spectrogram_CNN.cnn_model(eval_input, batch_size, target_value=self.target_value)
 
@@ -164,11 +165,12 @@ class SpectrogramLearning:
             loss2 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=model_output2, labels=y_target))
             prediction2 = tf.nn.softmax(model_output2)
             test_prediction = tf.nn.softmax(test_model_output)
-            my_optimizer = tf.train.AdamOptimizer(learning_rate=lr)#, epsilon=10e-2)
-            my_optimizer2 = tf.train.AdamOptimizer(learning_rate=0.0001)#, epsilon=10e-2)
+            # my_optimizer = tf.train.AdamOptimizer(learning_rate=lr, epsilon=10e-2)
+            # my_optimizer2 = tf.train.AdamOptimizer(learning_rate=lr*0.1, epsilon=10e-2)
             # my_optimizer = tf.train.AdamOptimizer(learning_rate = lr)
 
-            # my_optimizer = tf.train.MomentumOptimizer(learning_rate = lr,momentum=0.9)
+            my_optimizer = tf.train.MomentumOptimizer(learning_rate=lr, momentum=0.9)
+            my_optimizer2 = tf.train.MomentumOptimizer(learning_rate=lr*0.1, momentum=0.9)
             train_step = my_optimizer.minimize(loss)
             train_step2 = my_optimizer2.minimize(loss2)
             # Initializing global_variables
@@ -367,7 +369,7 @@ class SpectrogramLearning:
 
     def save_result(self):
         save_path = os.path.join('cnn', 'save')
-        with open(os.path.join(save_path, 'save_'+str(len(os.listdir(save_path)))+'_dif_lr'), 'w') as f:
+        with open(os.path.join(save_path, 'save_'+str(len(os.listdir(save_path)))+'_filter_big_3l'), 'w') as f:
             for ac_los in self.acc_loss_list:
                 f.write(ac_los+'\n')
             f.write('cnf_matrix\n')
@@ -381,7 +383,7 @@ if __name__ == '__main__':
     spec_learn = SpectrogramLearning('peak_modulation')
     spec_learn.read_wav()
     lr = 0.001
-    generations = 5000
+    generations = 50000
     # num_gens_to_wait = 250
     drop_out_rate = 0.05
     batch_size = 32

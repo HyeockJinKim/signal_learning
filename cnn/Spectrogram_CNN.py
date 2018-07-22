@@ -10,17 +10,17 @@ def cnn_model(input_images, batch_size, drop_out_rate=0.1, is_training=False, ta
         return (tf.get_variable(name=name, shape=shape, dtype=dtype, initializer=tf.constant_initializer(0.0)))
 
     with tf.variable_scope('conv1') as scope:
-        conv1_kernel = truncated_normal_var(name='conv_kernel1', shape=[11, 11, 1, 64],
+        conv1_kernel = truncated_normal_var(name='conv_kernel1', shape=[8, 24, 1, 16],
                                             dtype=tf.float32)
-        conv1 = tf.nn.conv2d(input_images, conv1_kernel, [1, 3, 3, 1], padding='SAME')
-        conv1_bias = truncated_normal_var(name='conv_bias1', shape=[64], dtype=tf.float32)
+        conv1 = tf.nn.conv2d(input_images, conv1_kernel, [1, 2, 2, 1], padding='SAME')  # stride, 1, 1 -> acc++
+        conv1_bias = truncated_normal_var(name='conv_bias1', shape=[16], dtype=tf.float32)
         conv1_add_bias = tf.nn.bias_add(conv1, conv1_bias)
         relu_conv1 = tf.nn.relu(conv1_add_bias)
 
     norm1 = tf.nn.lrn(relu_conv1, depth_radius=5, bias=2.5, alpha=1e-3, beta=0.75, name='norm1')
 
     with tf.variable_scope('conv2') as scope:
-        conv2_kernel = truncated_normal_var(name='conv_kernel2', shape=[5, 5, 64, 32], dtype=tf.float32)
+        conv2_kernel = truncated_normal_var(name='conv_kernel2', shape=[4, 12, 16, 32], dtype=tf.float32)
         conv2 = tf.nn.conv2d(norm1, conv2_kernel, [1, 1, 1, 1], padding='SAME')
         conv2_bias = truncated_normal_var(name='conv_bias2', shape=[32], dtype=tf.float32)
         conv2_add_bias = tf.nn.bias_add(conv2, conv2_bias)
@@ -29,9 +29,9 @@ def cnn_model(input_images, batch_size, drop_out_rate=0.1, is_training=False, ta
     norm2 = tf.nn.lrn(relu_conv2, depth_radius=5, bias=2.0, alpha=1e-3, beta=0.75, name='norm2')
 
     with tf.variable_scope('conv3') as scope:
-        conv3_kernel = truncated_normal_var(name='conv_kernel3', shape=[3, 3, 32, 32], dtype=tf.float32)
+        conv3_kernel = truncated_normal_var(name='conv_kernel3', shape=[2, 6, 32, 64], dtype=tf.float32)
         conv3 = tf.nn.conv2d(norm2, conv3_kernel, [1, 1, 1, 1], padding='SAME')
-        conv3_bias = truncated_normal_var(name='conv_bias3', shape=[32], dtype=tf.float32)
+        conv3_bias = truncated_normal_var(name='conv_bias3', shape=[64], dtype=tf.float32)
         conv3_add_bias = tf.nn.bias_add(conv3, conv3_bias)
         relu_conv3 = tf.nn.relu(conv3_add_bias)
 
