@@ -99,9 +99,11 @@ class SpectrogramLearning:
         al = []
         phase_al = []
         min_num = self.find_min_num()
+        min_num = 30
         print(min_num)
         for i, direct in enumerate(self.dirs):
             waves = [f for f in os.listdir(join(self.path, direct)) if f.endswith('.wav')]
+            random.shuffle(waves)
             self.target_value[direct] = i
             self.target_dict[i] = direct
             print(str(i) + ':' + str(direct) + ' ', end='')
@@ -383,7 +385,7 @@ if __name__ == '__main__':
     spec_learn = SpectrogramLearning('peak_modulation')
     spec_learn.read_wav()
     lr = 0.001
-    generations = 50000
+    generations = 20000
     # num_gens_to_wait = 250
     drop_out_rate = 0.05
     batch_size = 32
