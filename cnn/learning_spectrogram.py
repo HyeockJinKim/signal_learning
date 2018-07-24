@@ -99,7 +99,6 @@ class SpectrogramLearning:
         al = []
         phase_al = []
         min_num = self.find_min_num()
-        min_num = 30
         print(min_num)
         for i, direct in enumerate(self.dirs):
             waves = [f for f in os.listdir(join(self.path, direct)) if f.endswith('.wav')]
@@ -147,7 +146,7 @@ class SpectrogramLearning:
             self.confusion_matrix[pred[i]][target[i]] += 1
 
     def learning_cnn(self, lr, generations, drop_out_rate, batch_size):
-        x_input, y_target, eval_input, eval_target, z_input = self.define_value(batch_size)
+        x_input, y_target, eval_input, eval_target = self.define_value(batch_size)
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
@@ -155,7 +154,7 @@ class SpectrogramLearning:
                 model_output = Spectrogram_CNN.cnn_model(x_input, batch_size,
                                                          drop_out_rate=drop_out_rate,
                                                          is_training=True, target_value=self.target_value)
-                model_output2 = Spectrogram_CNN.cnn_model(z_input, batch_size,
+                model_output2 = Spectrogram_CNN.cnn_model(x_input, batch_size,
                                                          drop_out_rate=drop_out_rate,
                                                          is_training=True, target_value=self.target_value)
                 test_model_output = Spectrogram_CNN.cnn_model(eval_input, batch_size, target_value=self.target_value)
@@ -167,14 +166,13 @@ class SpectrogramLearning:
             loss2 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=model_output2, labels=y_target))
             prediction2 = tf.nn.softmax(model_output2)
             test_prediction = tf.nn.softmax(test_model_output)
-            # my_optimizer = tf.train.AdamOptimizer(learning_rate=lr, epsilon=10e-2)
-            # my_optimizer2 = tf.train.AdamOptimizer(learning_rate=lr*0.1, epsilon=10e-2)
+            my_optimizer = tf.train.AdamOptimizer(learning_rate=lr, epsilon=10e-2)
+            my_optimizer2 = tf.train.AdamOptimizer(learning_rate=lr*0.1, epsilon=10e-2)
             # my_optimizer = tf.train.AdamOptimizer(learning_rate = lr)
 
-            my_optimizer = tf.train.MomentumOptimizer(learning_rate=lr, momentum=0.9)
-            my_optimizer2 = tf.train.MomentumOptimizer(learning_rate=lr*0.1, momentum=0.9)
-            train_step = my_optimizer.minimize(loss)
-            train_step2 = my_optimizer2.minimize(loss2)
+            # my_optimizer = tf.train.MomentumOptimizer(learning_rate=lr, momentum=0.9)
+            # my_optimizer2 = tf.train.MomentumOptimizer(learning_rate=lr*0.1, momentum=0.9)
+            train_step = my_optimizer.minimize(loss+loss2)
             # Initializing global_variables
             init = tf.global_variables_initializer()
             sess.run(init)
@@ -196,9 +194,9 @@ class SpectrogramLearning:
                                                                  feed_dict={x_input: rand_x, y_target: rand_y})
                     temp_train_acc = self.get_accuracy(temp_train_preds, rand_y)
 
-                    sess.run(train_step2, feed_dict={z_input: rand_z, y_target: rand_y2})
+                    sess.run(train_step, feed_dict={x_input: rand_z, y_target: rand_y2})
                     temp_train_loss, temp_train_preds = sess.run([loss2, prediction2],
-                                                                 feed_dict={z_input: rand_z, y_target: rand_y2})
+                                                                 feed_dict={x_input: rand_z, y_target: rand_y2})
                     temp_train_acc = self.get_accuracy(temp_train_preds, rand_y2)
                     # logging temp result
                     if (i + 1) % 50 == 0:
@@ -241,7 +239,6 @@ class SpectrogramLearning:
                               'Train Acc (Test Acc): {:.2f} ({:.2f})'.format(*acc_and_loss))
             except KeyboardInterrupt:
                 print('Stop!!')
-                pass
             self.reset_confusion_matrix()
 
             for loop in range(5):
@@ -273,9 +270,10 @@ class SpectrogramLearning:
                 temp_train_loss, temp_train_preds = sess.run([loss, prediction],
                                                              feed_dict={x_input: rand_x, y_target: rand_y})
                 temp_train_acc = self.get_accuracy(temp_train_preds, rand_y)
-                sess.run(train_step2, feed_dict={z_input: rand_z, y_target: rand_y2})
+
+                sess.run(train_step, feed_dict={x_input: rand_z, y_target: rand_y2})
                 temp_train_loss, temp_train_preds = sess.run([loss2, prediction2],
-                                                             feed_dict={z_input: rand_z, y_target: rand_y2})
+                                                             feed_dict={x_input: rand_z, y_target: rand_y2})
                 temp_train_acc = self.get_accuracy(temp_train_preds, rand_y2)
                 no_list = []
                 num_list = []
@@ -352,13 +350,12 @@ class SpectrogramLearning:
         x_input_shape = (batch_size, self.freq_size, self.time_size, 1)
         y_input_shape = (batch_size,)
         x_input = tf.placeholder(tf.float32, shape=x_input_shape)
-        z_input = tf.placeholder(tf.float32, shape=x_input_shape)
 
         y_target = tf.placeholder(tf.int32, shape=y_input_shape)
         eval_input = tf.placeholder(tf.float32, shape=x_input_shape)
         eval_target = tf.placeholder(tf.int32, shape=y_input_shape)
 
-        return x_input, y_target, eval_input, eval_target, z_input
+        return x_input, y_target, eval_input, eval_target
 
     def show_confusion_matrix(self):
         index_list = [index for index in self.target_dict.items()]
@@ -371,7 +368,7 @@ class SpectrogramLearning:
 
     def save_result(self):
         save_path = os.path.join('cnn', 'save')
-        with open(os.path.join(save_path, 'save_'+str(len(os.listdir(save_path)))+'_filter_big_3l'), 'w') as f:
+        with open(os.path.join(save_path, 'save_'+str(len(os.listdir(save_path)))+'delete_img'), 'w') as f:
             for ac_los in self.acc_loss_list:
                 f.write(ac_los+'\n')
             f.write('cnf_matrix\n')
@@ -385,7 +382,7 @@ if __name__ == '__main__':
     spec_learn = SpectrogramLearning('peak_modulation')
     spec_learn.read_wav()
     lr = 0.001
-    generations = 20000
+    generations = 50000
     # num_gens_to_wait = 250
     drop_out_rate = 0.05
     batch_size = 32
